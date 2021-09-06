@@ -1,4 +1,4 @@
-FROM rshop/pipeline:7.3
+FROM rshop/pipeline:8.0
 
 WORKDIR /var/www/html
 COPY pipe.sh /var/www/html/
