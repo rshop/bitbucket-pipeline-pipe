@@ -52,3 +52,13 @@ if [[ MERGE_BRANCH -ne "-1" ]]; then
         git push origin $BITBUCKET_BRANCH
     fi
 fi
+
+# full merge to branch
+FULL_MERGE_BRANCH=${FULL_MERGE_BRANCH:="-1"}
+
+if [[ FULL_MERGE_BRANCH -ne "-1" ]]; then
+    git fetch origin
+    git checkout $FULL_MERGE_BRANCH
+    git merge -m "Merge $BITBUCKET_BRANCH to $FULL_MERGE_BRANCH" $BITBUCKET_BRANCH
+    git push origin $FULL_MERGE_BRANCH
+fi
