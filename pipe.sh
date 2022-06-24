@@ -10,7 +10,8 @@ cp /opt/atlassian/pipelines/agent/ssh/..data/known_hosts /root/.ssh/known_hosts
 
 # move cache folder if present
 if [ -d ".composer/cache" ]; then
-    mv .composer/cache /root/.composer/
+    mkdir -p /root/.composer/cache
+    mv .composer/cache/ /root/.composer/cache
     rm -Rf .composer
 fi
 
@@ -70,4 +71,5 @@ if [[ FULL_MERGE_BRANCH -ne "-1" ]]; then
 fi
 
 # move composer for caching purposes
-mv /root/.composer ./
+mkdir -p .composer/cache
+mv /root/.composer/cache/ ./.composer/cache/
