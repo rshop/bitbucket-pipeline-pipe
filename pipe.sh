@@ -8,6 +8,9 @@ cp /opt/atlassian/pipelines/agent/ssh/..data/id_rsa_tmp /root/.ssh/id_rsa
 chmod 400 /root/.ssh/id_rsa
 cp /opt/atlassian/pipelines/agent/ssh/..data/known_hosts /root/.ssh/known_hosts
 
+# unsafe repository fix
+git config --global --add safe.directory /opt/atlassian/pipelines/agent/build
+
 # move cache folder if present
 if [ -d ".composer/cache" ]; then
     mkdir -p /root/.composer/cache
