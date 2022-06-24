@@ -14,7 +14,7 @@ git config --global --add safe.directory /opt/atlassian/pipelines/agent/build
 # move cache folder if present
 if [ -d ".composer/cache" ]; then
     mkdir -p /root/.composer/cache
-    mv .composer/cache/ /root/.composer/cache
+    mv .composer/cache/ /root/.composer/cache/
     rm -Rf .composer
 fi
 
