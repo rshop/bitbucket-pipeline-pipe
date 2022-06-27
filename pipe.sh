@@ -8,6 +8,16 @@ cp /opt/atlassian/pipelines/agent/ssh/..data/id_rsa_tmp /root/.ssh/id_rsa
 chmod 400 /root/.ssh/id_rsa
 cp /opt/atlassian/pipelines/agent/ssh/..data/known_hosts /root/.ssh/known_hosts
 
+# unsafe repository fix
+git config --global --add safe.directory /opt/atlassian/pipelines/agent/build
+
+# move cache folder if present
+if [ -d ".composer/cache" ]; then
+    mkdir -p /root/.composer/cache
+    mv .composer/cache/ /root/.composer/cache
+    rm -Rf .composer
+fi
+
 # lint
 find . -type f -name '*.php' -exec php -l {} \; | (! grep -v "No syntax errors detected" )
 
@@ -62,3 +72,9 @@ if [[ FULL_MERGE_BRANCH -ne "-1" ]]; then
     git merge -m "Merge $BITBUCKET_BRANCH to $FULL_MERGE_BRANCH" $BITBUCKET_BRANCH
     git push origin $FULL_MERGE_BRANCH
 fi
+
+git checkout $BITBUCKET_BRANCH
+
+# move composer for caching purposes
+mkdir -p .composer/cache
+mv /root/.composer/cache/ ./.composer/cache/
