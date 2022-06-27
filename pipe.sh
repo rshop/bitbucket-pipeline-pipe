@@ -71,5 +71,7 @@ if [[ FULL_MERGE_BRANCH -ne "-1" ]]; then
     git push origin $FULL_MERGE_BRANCH
 fi
 
+git checkout $BITBUCKET_BRANCH
+
 # move composer for caching purposes
 mv /root/.composer/cache .composer/
