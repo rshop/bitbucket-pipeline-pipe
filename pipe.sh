@@ -13,6 +13,16 @@ git config --global --add safe.directory /opt/atlassian/pipelines/agent/build
 
 # move cache folder if present
 if [ -d ".composer/cache" ]; then
+    # move php_cs cache
+    if [ -f ".composer/cache/.php_cs.cache" ]; then
+        mv .composer/cache/.php_cs.cache ./
+    fi
+
+    # move php_cs ctp cache
+    if [ -f ".composer/cache/.php_cs.ctp.cache" ]; then
+        mv .composer/cache/.php_cs.ctp.cache ./
+    fi
+
     mv .composer/cache /root/.composer/
 fi
 
@@ -75,3 +85,13 @@ git checkout $BITBUCKET_BRANCH
 
 # move composer for caching purposes
 mv /root/.composer/cache .composer/
+
+# move php_cs cache
+if [ -f ".php_cs.cache" ]; then
+    mv .php_cs.cache .composer/cache/
+fi
+
+# move php_cs ctp cache
+if [ -f ".php_cs.ctp.cache" ]; then
+    mv .php_cs.ctp.cache .composer/cache/
+fi
