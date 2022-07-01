@@ -30,7 +30,7 @@ fi
 find . -type f -name '*.php' -exec php -l {} \; | (! grep -v "No syntax errors detected" )
 
 # build
-composer install
+composer install --no-interaction --apcu-autoloader
 
 # run fixer and update if modified
 php-cs-fixer fix --config=.php_cs.dist
