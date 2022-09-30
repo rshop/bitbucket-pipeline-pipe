@@ -87,11 +87,11 @@ git checkout $BITBUCKET_BRANCH
 mv /root/.composer/cache .composer/
 
 # move php_cs cache
-if [ -f ".php_cs.cache" ]; then
+if [ -f ".php_cs.cache" ] && [ -d ".composer/cache" ]; then
     mv .php_cs.cache .composer/cache/
 fi
 
 # move php_cs ctp cache
-if [ -f ".php_cs.ctp.cache" ]; then
+if [ -f ".php_cs.ctp.cache" ] && [ -d ".composer/cache" ]; then
     mv .php_cs.ctp.cache .composer/cache/
 fi
