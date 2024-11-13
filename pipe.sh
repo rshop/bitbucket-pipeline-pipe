@@ -10,6 +10,7 @@ cp /opt/atlassian/pipelines/agent/ssh/..data/known_hosts /root/.ssh/known_hosts
 
 # unsafe repository fix
 git config --global --add safe.directory /opt/atlassian/pipelines/agent/build
+git config --global --add safe.directory /root/.composer
 
 # move cache folder if present
 if [ -d ".composer/cache" ]; then
