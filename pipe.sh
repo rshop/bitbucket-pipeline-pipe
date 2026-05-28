@@ -64,20 +64,13 @@ if [[ "$PHPUNIT" == "true" ]]; then
     DB_NAME=${DB_NAME:-app}
     DB_TEST_NAME=${DB_TEST_NAME:-${DB_NAME}_test}
 
-    echo "==> phpunit: installing mariadb client"
-    if command -v apk >/dev/null 2>&1; then
-        apk add --no-cache mariadb-client mariadb-connector-c
-    elif command -v apt-get >/dev/null 2>&1; then
-        apt-get update && apt-get install -y --no-install-recommends default-mysql-client
-    fi
-
-    echo "==> phpunit: waiting for DB at $DB_HOST"
-    for i in $(seq 1 20); do
+    echo "==> phpunit: waiting for DB at $DB_HOST (up to 30s)"
+    for i in $(seq 1 30); do
         if mysql -h "$DB_HOST" -u"$DB_USER" -p"$DB_PASS" -e "SELECT 1" >/dev/null 2>&1; then
             break
         fi
-        if [[ $i -eq 20 ]]; then
-            echo "DB at $DB_HOST not reachable after 10s" >&2
+        if [[ $i -eq 30 ]]; then
+            echo "DB at $DB_HOST not reachable after 30s" >&2
             mysql -h "$DB_HOST" -u"$DB_USER" -p"$DB_PASS" -e "SELECT 1" >&2 || true
             exit 1
         fi
