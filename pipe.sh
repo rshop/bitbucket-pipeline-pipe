@@ -54,6 +54,30 @@ if [[ PHPSTAN_LEVEL -ne "-1" ]]; then
     phpstan analyse src -c phpstan.neon --level $PHPSTAN_LEVEL --memory-limit=1G
 fi
 
+# phpunit
+PHPUNIT=${PHPUNIT:="false"}
+
+if [[ "$PHPUNIT" == "true" ]]; then
+    DB_HOST=${DB_HOST:-127.0.0.1}
+    DB_USER=${DB_USER:-root}
+    DB_PASS=${DB_PASS:-root}
+    DB_NAME=${DB_NAME:-app}
+    DB_TEST_NAME=${DB_TEST_NAME:-${DB_NAME}_test}
+
+    # wait for the DB service to accept connections
+    until mysql -h "$DB_HOST" -u"$DB_USER" -p"$DB_PASS" -e "SELECT 1" >/dev/null 2>&1; do sleep 1; done
+
+    # both connections need the full schema: `default` is what fixtures read table definitions from
+    mysql -h "$DB_HOST" -u"$DB_USER" -p"$DB_PASS" -e "CREATE DATABASE IF NOT EXISTS \`$DB_NAME\`; CREATE DATABASE IF NOT EXISTS \`$DB_TEST_NAME\`"
+    mysql -h "$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" < tests/schema.sql
+    mysql -h "$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_TEST_NAME" < tests/schema.sql
+
+    DB_HOST="$DB_HOST" DB_USER="$DB_USER" DB_PASS="$DB_PASS" DB_NAME="$DB_NAME" bin/cake migrations migrate
+    DB_HOST="$DB_HOST" DB_USER="$DB_USER" DB_PASS="$DB_PASS" DB_NAME="$DB_TEST_NAME" bin/cake migrations migrate
+
+    DB_HOST="$DB_HOST" DB_USER="$DB_USER" DB_PASS="$DB_PASS" DB_NAME="$DB_NAME" DB_TEST_NAME="$DB_TEST_NAME" vendor/bin/phpunit
+fi
+
 # merge to devel branch
 MERGE_BRANCH=${MERGE_BRANCH:="devel"}
 
