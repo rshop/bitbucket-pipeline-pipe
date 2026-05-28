@@ -64,19 +64,27 @@ if [[ "$PHPUNIT" == "true" ]]; then
     DB_NAME=${DB_NAME:-app}
     DB_TEST_NAME=${DB_TEST_NAME:-${DB_NAME}_test}
 
-    echo "==> phpunit: waiting for DB at $DB_HOST (up to 30s)"
+    echo "==> phpunit: starting mariadb"
+    mkdir -p /run/mysqld /var/lib/mysql
+    chown -R mysql:mysql /run/mysqld /var/lib/mysql
+    mariadb-install-db --user=mysql --datadir=/var/lib/mysql >/dev/null
+    mariadbd --user=mysql --datadir=/var/lib/mysql --socket=/run/mysqld/mysqld.sock --bind-address=127.0.0.1 >/var/log/mariadb.log 2>&1 &
+
     for i in $(seq 1 30); do
-        if mysql -h "$DB_HOST" -u"$DB_USER" -p"$DB_PASS" -e "SELECT 1" >/dev/null 2>&1; then
+        if mysql -uroot -e "SELECT 1" >/dev/null 2>&1; then
             break
         fi
         if [[ $i -eq 30 ]]; then
-            echo "DB at $DB_HOST not reachable after 30s" >&2
-            mysql -h "$DB_HOST" -u"$DB_USER" -p"$DB_PASS" -e "SELECT 1" >&2 || true
+            echo "mariadb did not start within 30s; log:" >&2
+            cat /var/log/mariadb.log >&2 || true
             exit 1
         fi
         sleep 1
     done
-    echo "==> phpunit: DB reachable"
+
+    # Set root password so downstream connections can use $DB_PASS uniformly.
+    mysql -uroot -e "ALTER USER 'root'@'localhost' IDENTIFIED BY '$DB_PASS'; FLUSH PRIVILEGES;"
+    echo "==> phpunit: mariadb ready"
 
     # both connections need the full schema: `default` is what fixtures read table definitions from
     echo "==> phpunit: creating databases and loading tests/schema.sql"
