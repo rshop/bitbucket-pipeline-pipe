@@ -64,17 +64,38 @@ if [[ "$PHPUNIT" == "true" ]]; then
     DB_NAME=${DB_NAME:-app}
     DB_TEST_NAME=${DB_TEST_NAME:-${DB_NAME}_test}
 
-    # wait for the DB service to accept connections
-    until mysql -h "$DB_HOST" -u"$DB_USER" -p"$DB_PASS" -e "SELECT 1" >/dev/null 2>&1; do sleep 1; done
+    echo "==> phpunit: installing mariadb client"
+    if command -v apk >/dev/null 2>&1; then
+        apk add --no-cache mariadb-client mariadb-connector-c
+    elif command -v apt-get >/dev/null 2>&1; then
+        apt-get update && apt-get install -y --no-install-recommends default-mysql-client
+    fi
+
+    echo "==> phpunit: waiting for DB at $DB_HOST"
+    for i in $(seq 1 20); do
+        if mysql -h "$DB_HOST" -u"$DB_USER" -p"$DB_PASS" -e "SELECT 1" >/dev/null 2>&1; then
+            break
+        fi
+        if [[ $i -eq 20 ]]; then
+            echo "DB at $DB_HOST not reachable after 10s" >&2
+            mysql -h "$DB_HOST" -u"$DB_USER" -p"$DB_PASS" -e "SELECT 1" >&2 || true
+            exit 1
+        fi
+        sleep 1
+    done
+    echo "==> phpunit: DB reachable"
 
     # both connections need the full schema: `default` is what fixtures read table definitions from
+    echo "==> phpunit: creating databases and loading tests/schema.sql"
     mysql -h "$DB_HOST" -u"$DB_USER" -p"$DB_PASS" -e "CREATE DATABASE IF NOT EXISTS \`$DB_NAME\`; CREATE DATABASE IF NOT EXISTS \`$DB_TEST_NAME\`"
     mysql -h "$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" < tests/schema.sql
     mysql -h "$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_TEST_NAME" < tests/schema.sql
 
+    echo "==> phpunit: running migrations on both databases"
     DB_HOST="$DB_HOST" DB_USER="$DB_USER" DB_PASS="$DB_PASS" DB_NAME="$DB_NAME" bin/cake migrations migrate
     DB_HOST="$DB_HOST" DB_USER="$DB_USER" DB_PASS="$DB_PASS" DB_NAME="$DB_TEST_NAME" bin/cake migrations migrate
 
+    echo "==> phpunit: running phpunit"
     DB_HOST="$DB_HOST" DB_USER="$DB_USER" DB_PASS="$DB_PASS" DB_NAME="$DB_NAME" DB_TEST_NAME="$DB_TEST_NAME" vendor/bin/phpunit
 fi
 
