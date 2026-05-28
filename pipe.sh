@@ -58,7 +58,7 @@ fi
 PHPUNIT=${PHPUNIT:="false"}
 
 if [[ "$PHPUNIT" == "true" ]]; then
-    DB_HOST=${DB_HOST:-127.0.0.1}
+    DB_HOST=${DB_HOST:-localhost}
     DB_USER=${DB_USER:-root}
     DB_PASS=${DB_PASS:-root}
     DB_NAME=${DB_NAME:-app}
@@ -68,7 +68,12 @@ if [[ "$PHPUNIT" == "true" ]]; then
     mkdir -p /run/mysqld /var/lib/mysql
     chown -R mysql:mysql /run/mysqld /var/lib/mysql
     mariadb-install-db --user=mysql --datadir=/var/lib/mysql >/dev/null
-    mariadbd --user=mysql --datadir=/var/lib/mysql --socket=/run/mysqld/mysqld.sock --bind-address=127.0.0.1 >/var/log/mariadb.log 2>&1 &
+    mariadbd --user=mysql --datadir=/var/lib/mysql --socket=/run/mysqld/mysqld.sock >/var/log/mariadb.log 2>&1 &
+
+    # Symlink the socket to other common paths so any client finds it regardless of where it looks.
+    mkdir -p /var/run/mysqld /tmp
+    ln -sf /run/mysqld/mysqld.sock /var/run/mysqld/mysqld.sock
+    ln -sf /run/mysqld/mysqld.sock /tmp/mysql.sock
 
     for i in $(seq 1 30); do
         if mysql -uroot -e "SELECT 1" >/dev/null 2>&1; then
@@ -82,7 +87,6 @@ if [[ "$PHPUNIT" == "true" ]]; then
         sleep 1
     done
 
-    # Set root password so downstream connections can use $DB_PASS uniformly.
     mysql -uroot -e "ALTER USER 'root'@'localhost' IDENTIFIED BY '$DB_PASS'; FLUSH PRIVILEGES;"
     echo "==> phpunit: mariadb ready"
 
