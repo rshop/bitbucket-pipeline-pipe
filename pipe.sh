@@ -32,6 +32,9 @@ find . -type f -name '*.php' -exec php -l {} \; | (! grep -v "No syntax errors d
 # build
 composer install --no-interaction --optimize-autoloader
 
+# Suppress deprecated errors for CLI commands
+export ERROR_ERROR_LEVEL=8183
+
 # run fixer and update if modified
 php-cs-fixer fix --config=.php_cs.dist
 php-cs-fixer fix --config=.php_cs.ctp.dist
