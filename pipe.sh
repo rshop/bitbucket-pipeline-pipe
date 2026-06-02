@@ -29,6 +29,11 @@ fi
 # lint
 find . -type f -name '*.php' -exec php -l {} \; | (! grep -v "No syntax errors detected" )
 
+# configure github oauth if token is set
+if [[ -n "$GITHUB_TOKEN" ]]; then
+    composer config -g github-oauth.github.com "$GITHUB_TOKEN"
+fi
+
 # build
 composer install --no-interaction --optimize-autoloader
 
