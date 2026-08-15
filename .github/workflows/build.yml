@@ -3,7 +3,7 @@ name: Build image and push to Docker Hub
 on: [push, workflow_dispatch, repository_dispatch]
 
 env:
-  BRANCH: '8.0'
+  BRANCH: '8.3'
 
 jobs:
   docker:
