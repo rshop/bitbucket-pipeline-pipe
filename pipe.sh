@@ -33,8 +33,8 @@ find . -type f -name '*.php' -exec php -l {} \; | (! grep -v "No syntax errors d
 composer install
 
 # run fixer and update if modified
-php-cs-fixer fix --config=.php_cs.dist
-php-cs-fixer fix --config=.php_cs.ctp.dist
+php-cs-fixer fix --config=.php-cs-fixer.dist.php
+php-cs-fixer fix --config=.php-cs-fixer.ctp.dist.php
 
 # repository
 git remote set-url origin $BITBUCKET_GIT_SSH_ORIGIN
