@@ -73,6 +73,14 @@ if [[ "$PHPUNIT" == "true" ]]; then
     DB_TEST_NAME=${DB_TEST_NAME:-${DB_NAME}_test}
 
     echo "==> phpunit: starting mariadb"
+    # guard against a running mariadbd from an earlier attempt in this same container
+    pkill -9 mariadbd 2>/dev/null || true
+
+    for i in $(seq 1 10); do
+        pgrep mariadbd >/dev/null 2>&1 || break
+        sleep 1
+    done
+
     rm -Rf /run/mysqld /var/lib/mysql
     mkdir -p /run/mysqld /var/lib/mysql
     chown -R mysql:mysql /run/mysqld /var/lib/mysql
