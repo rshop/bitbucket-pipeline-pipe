@@ -73,6 +73,7 @@ if [[ "$PHPUNIT" == "true" ]]; then
     DB_TEST_NAME=${DB_TEST_NAME:-${DB_NAME}_test}
 
     echo "==> phpunit: starting mariadb"
+    rm -Rf /run/mysqld /var/lib/mysql
     mkdir -p /run/mysqld /var/lib/mysql
     chown -R mysql:mysql /run/mysqld /var/lib/mysql
     mariadb-install-db --user=mysql --datadir=/var/lib/mysql >/dev/null
