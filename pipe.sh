@@ -73,6 +73,11 @@ if [[ "$PHPUNIT" == "true" ]]; then
     DB_TEST_NAME=${DB_TEST_NAME:-${DB_NAME}_test}
 
     echo "==> phpunit: starting mariadb"
+    echo "--- diagnostics: before cleanup ---" >&2
+    ps aux >&2 || true
+    ls -la /run/mysqld/ 2>&1 >&2 || true
+    ls -la /var/lib/mysql/ 2>&1 >&2 || true
+
     # guard against a running mariadbd from an earlier attempt in this same container
     pkill -9 mariadbd 2>/dev/null || true
 
@@ -84,6 +89,11 @@ if [[ "$PHPUNIT" == "true" ]]; then
     rm -Rf /run/mysqld /var/lib/mysql
     mkdir -p /run/mysqld /var/lib/mysql
     chown -R mysql:mysql /run/mysqld /var/lib/mysql
+
+    echo "--- diagnostics: after cleanup, before install-db ---" >&2
+    ls -la /run/mysqld/ 2>&1 >&2 || true
+    ls -la /var/lib/mysql/ 2>&1 >&2 || true
+
     mariadb-install-db --user=mysql --datadir=/var/lib/mysql >/dev/null
     mariadbd --user=mysql --datadir=/var/lib/mysql --socket=/run/mysqld/mysqld.sock >/var/log/mariadb.log 2>&1 &
 
@@ -99,6 +109,11 @@ if [[ "$PHPUNIT" == "true" ]]; then
         if [[ $i -eq 30 ]]; then
             echo "mariadb did not start within 30s; log:" >&2
             cat /var/log/mariadb.log >&2 || true
+            echo "--- diagnostics: on failure ---" >&2
+            ps aux >&2 || true
+            ls -la /run/mysqld/ 2>&1 >&2 || true
+            fuser -v /run/mysqld/mysqld.sock >&2 2>&1 || true
+            lsof /run/mysqld/mysqld.sock >&2 2>&1 || true
             exit 1
         fi
         sleep 1
