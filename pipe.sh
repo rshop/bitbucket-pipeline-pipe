@@ -9,7 +9,7 @@ chmod 400 /root/.ssh/id_rsa
 cp /opt/atlassian/pipelines/agent/ssh/..data/known_hosts /root/.ssh/known_hosts
 
 # unsafe repository fix
-git config --global --add safe.directory /opt/atlassian/pipelines/agent/build
+git config --global --add safe.directory '*'
 
 # move cache folder if present
 if [ -d ".composer/cache" ]; then
@@ -29,8 +29,16 @@ fi
 # lint
 find . -type f -name '*.php' -exec php -l {} \; | (! grep -v "No syntax errors detected" )
 
+# configure github oauth if token is set
+if [[ -n "$GITHUB_TOKEN" ]]; then
+    composer config -g github-oauth.github.com "$GITHUB_TOKEN"
+fi
+
 # build
-composer install
+composer install --no-interaction --optimize-autoloader
+
+# Suppress deprecated errors for CLI commands
+export ERROR_ERROR_LEVEL=8183
 
 # run fixer and update if modified
 php-cs-fixer fix --config=.php-cs-fixer.dist.php
@@ -52,6 +60,56 @@ PHPSTAN_LEVEL=${PHPSTAN_LEVEL:="-1"}
 
 if [[ PHPSTAN_LEVEL -ne "-1" ]]; then
     phpstan analyse src -c phpstan.neon --level $PHPSTAN_LEVEL --memory-limit=1G
+fi
+
+# phpunit
+PHPUNIT=${PHPUNIT:="false"}
+
+if [[ "$PHPUNIT" == "true" ]]; then
+    DB_HOST=${DB_HOST:-localhost}
+    DB_USER=${DB_USER:-root}
+    DB_PASS=${DB_PASS:-root}
+    DB_NAME=${DB_NAME:-app}
+    DB_TEST_NAME=${DB_TEST_NAME:-${DB_NAME}_test}
+
+    echo "==> phpunit: starting mariadb"
+    mkdir -p /run/mysqld /var/lib/mysql
+    chown -R mysql:mysql /run/mysqld /var/lib/mysql
+    mariadb-install-db --user=mysql --datadir=/var/lib/mysql >/dev/null
+    mariadbd --user=mysql --datadir=/var/lib/mysql --socket=/run/mysqld/mysqld.sock >/var/log/mariadb.log 2>&1 &
+
+    # Symlink the socket to other common paths so any client finds it regardless of where it looks.
+    mkdir -p /var/run/mysqld /tmp
+    ln -sf /run/mysqld/mysqld.sock /var/run/mysqld/mysqld.sock
+    ln -sf /run/mysqld/mysqld.sock /tmp/mysql.sock
+
+    for i in $(seq 1 30); do
+        if mysql -uroot -e "SELECT 1" >/dev/null 2>&1; then
+            break
+        fi
+        if [[ $i -eq 30 ]]; then
+            echo "mariadb did not start within 30s; log:" >&2
+            cat /var/log/mariadb.log >&2 || true
+            exit 1
+        fi
+        sleep 1
+    done
+
+    mysql -uroot -e "ALTER USER 'root'@'localhost' IDENTIFIED BY '$DB_PASS'; FLUSH PRIVILEGES;"
+    echo "==> phpunit: mariadb ready"
+
+    # both connections need the full schema: `default` is what fixtures read table definitions from
+    echo "==> phpunit: creating databases and loading tests/schema.sql"
+    mysql -h "$DB_HOST" -u"$DB_USER" -p"$DB_PASS" -e "CREATE DATABASE IF NOT EXISTS \`$DB_NAME\`; CREATE DATABASE IF NOT EXISTS \`$DB_TEST_NAME\`"
+    mysql -h "$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" < tests/schema.sql
+    mysql -h "$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_TEST_NAME" < tests/schema.sql
+
+    echo "==> phpunit: running migrations on both databases"
+    DB_HOST="$DB_HOST" DB_USER="$DB_USER" DB_PASS="$DB_PASS" DB_NAME="$DB_NAME" bin/cake migrations migrate
+    DB_HOST="$DB_HOST" DB_USER="$DB_USER" DB_PASS="$DB_PASS" DB_NAME="$DB_TEST_NAME" bin/cake migrations migrate
+
+    echo "==> phpunit: running phpunit"
+    DB_HOST="$DB_HOST" DB_USER="$DB_USER" DB_PASS="$DB_PASS" DB_NAME="$DB_NAME" DB_TEST_NAME="$DB_TEST_NAME" vendor/bin/phpunit
 fi
 
 # merge to devel branch
@@ -87,11 +145,11 @@ git checkout $BITBUCKET_BRANCH
 mv /root/.composer/cache .composer/
 
 # move php_cs cache
-if [ -f ".php_cs.cache" ]; then
+if [ -f ".php_cs.cache" ] && [ -d ".composer/cache" ]; then
     mv .php_cs.cache .composer/cache/
 fi
 
 # move php_cs ctp cache
-if [ -f ".php_cs.ctp.cache" ]; then
+if [ -f ".php_cs.ctp.cache" ] && [ -d ".composer/cache" ]; then
     mv .php_cs.ctp.cache .composer/cache/
 fi

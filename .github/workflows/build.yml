@@ -1,6 +1,6 @@
 name: Build image and push to Docker Hub
 
-on: [push, workflow_dispatch, repository_dispatch]
+on: [push, workflow_dispatch]
 
 env:
   BRANCH: '8.3'
