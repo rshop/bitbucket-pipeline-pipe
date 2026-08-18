@@ -72,36 +72,15 @@ if [[ "$PHPUNIT" == "true" ]]; then
     DB_NAME=${DB_NAME:-app}
     DB_TEST_NAME=${DB_TEST_NAME:-${DB_NAME}_test}
 
-    echo "==> phpunit: starting mariadb"
-    echo "--- diagnostics: before cleanup ---" >&2
-    ps aux >&2 || true
-    ls -la /run/mysqld/ 2>&1 >&2 || true
-    ls -la /var/lib/mysql/ 2>&1 >&2 || true
-
-    # guard against a running mariadbd from an earlier attempt in this same container
-    pkill -9 mariadbd 2>/dev/null || true
-
-    for i in $(seq 1 10); do
-        pgrep mariadbd >/dev/null 2>&1 || break
-        sleep 1
-    done
-
+    echo "==> phpunit: preparing mariadb"
     rm -Rf /run/mysqld /var/lib/mysql
-    mkdir -p /run/mysqld /var/lib/mysql
+    mkdir -p /run/mysqld /var/lib/mysql /tmp
     chown -R mysql:mysql /run/mysqld /var/lib/mysql
-
-    echo "--- diagnostics: after cleanup, before install-db ---" >&2
-    ls -la /run/mysqld/ 2>&1 >&2 || true
-    ls -la /var/lib/mysql/ 2>&1 >&2 || true
-
     mariadb-install-db --user=mysql --datadir=/var/lib/mysql >/dev/null
     mariadbd --user=mysql --datadir=/var/lib/mysql --socket=/run/mysqld/mysqld.sock >/var/log/mariadb.log 2>&1 &
-
-    # Symlink the socket to other common paths so any client finds it regardless of where it looks.
-    mkdir -p /var/run/mysqld /tmp
-    ln -sf /run/mysqld/mysqld.sock /var/run/mysqld/mysqld.sock
     ln -sf /run/mysqld/mysqld.sock /tmp/mysql.sock
 
+    echo "==> phpunit: starting mariadb"
     for i in $(seq 1 30); do
         if mysql -uroot -e "SELECT 1" >/dev/null 2>&1; then
             break
@@ -109,21 +88,13 @@ if [[ "$PHPUNIT" == "true" ]]; then
         if [[ $i -eq 30 ]]; then
             echo "mariadb did not start within 30s; log:" >&2
             cat /var/log/mariadb.log >&2 || true
-            echo "--- diagnostics: on failure ---" >&2
-            ps aux >&2 || true
-            ls -la /run/mysqld/ 2>&1 >&2 || true
-            fuser -v /run/mysqld/mysqld.sock >&2 2>&1 || true
-            lsof /run/mysqld/mysqld.sock >&2 2>&1 || true
             exit 1
         fi
         sleep 1
     done
 
-    mysql -uroot -e "ALTER USER 'root'@'localhost' IDENTIFIED BY '$DB_PASS'; FLUSH PRIVILEGES;"
-    echo "==> phpunit: mariadb ready"
-
-    # both connections need the full schema: `default` is what fixtures read table definitions from
     echo "==> phpunit: creating databases and loading tests/schema.sql"
+    mysql -uroot -e "ALTER USER 'root'@'localhost' IDENTIFIED BY '$DB_PASS'; FLUSH PRIVILEGES;"
     mysql -h "$DB_HOST" -u"$DB_USER" -p"$DB_PASS" -e "CREATE DATABASE IF NOT EXISTS \`$DB_NAME\`; CREATE DATABASE IF NOT EXISTS \`$DB_TEST_NAME\`"
     mysql -h "$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" < tests/schema.sql
     mysql -h "$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_TEST_NAME" < tests/schema.sql
